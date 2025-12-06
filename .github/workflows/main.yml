@@ -22,11 +22,13 @@ jobs:
             erlang: 27.3
           - elixir: 1.18.0
             erlang: 27.3
+          - elixir: 1.19.0
+            erlang: 28.0
     name: Elixir v${{ matrix.versions.elixir }}, Erlang v${{ matrix.versions.erlang }} on ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: erlef/setup-beam@v1
+      - uses: erlef/setup-beam@566deebc640988a494af16ecdf6f820fe0d3fea4
         with:
           otp-version: ${{matrix.versions.erlang}}
           elixir-version: ${{matrix.versions.elixir}}
