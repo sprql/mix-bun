@@ -210,7 +210,7 @@ Update your `:tailwind` configuration in `config/config.exs` to use `bun` instea
 ```elixir
 config :bun,
   css: [
-    args: ~w(run tailwindcss --input=css/app.css --output=../priv/static/assets/app.css),
+    args: ~w(run tailwindcss --input=css/app.css --output=../priv/static/assets/css/app.css),
     cd: Path.expand("../assets", __DIR__)
   ]
 ```
