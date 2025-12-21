@@ -302,7 +302,7 @@ defmodule Bun do
           end
 
         if Enum.any?(other, &(&1 == "musl")),
-          do: target <> "-musl",
+          do: target <> "-musl-baseline",
           else: target
     end
   end
