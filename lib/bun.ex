@@ -146,9 +146,7 @@ defmodule Bun do
   Returns `{:ok, version_string}` on success or `:error` when the executable
   is not available.
   """
-  def bin_version do
-    path = bin_path()
-
+  def bin_version(path \\ bin_path()) do
     with true <- File.exists?(path),
          {result, 0} <- System.cmd(path, ["--version"]) do
       {:ok, String.trim(result)}
@@ -254,10 +252,15 @@ defmodule Bun do
   defdelegate call!(module, args \\ [], opts \\ []), to: Bun.Supervisor
 
   def install do
+    version = configured_version()
+    target = target()
+
     zip =
       fetch_body!(
-        "https://github.com/oven-sh/bun/releases/download/bun-v#{configured_version()}/bun-#{target()}.zip"
+        "https://github.com/oven-sh/bun/releases/download/bun-v#{version}/bun-#{target}.zip"
       )
+
+    verify_checksum!(zip, version, target)
 
     download_path =
       case extract_bun_binary(zip) do
@@ -268,8 +271,55 @@ defmodule Bun do
     bin_path = bin_path()
     File.mkdir_p!(Path.dirname(bin_path))
 
-    File.cp!(download_path, bin_path)
-    File.chmod(bin_path, 0o755)
+    # Atomic-ish replacement: copy to .tmp first, verify, then rename
+    tmp_bin_path = bin_path <> ".tmp"
+    File.cp!(download_path, tmp_bin_path)
+    File.chmod(tmp_bin_path, 0o755)
+
+    # Verify the new binary works before committing to it
+    case bin_version(tmp_bin_path) do
+      {:ok, ^version} ->
+        File.rename!(tmp_bin_path, bin_path)
+        :ok
+
+      {:ok, other_version} ->
+        File.rm(tmp_bin_path)
+
+        raise "Installation failed: expected version #{version}, but the downloaded binary reported #{other_version}."
+
+      :error ->
+        File.rm(tmp_bin_path)
+
+        raise "Installation failed: the downloaded Bun binary is unusable on this system (OS killed the process or it failed to execute)."
+    end
+  end
+
+  defp verify_checksum!(zip_body, version, target) do
+    shasums_url = "https://github.com/oven-sh/bun/releases/download/bun-v#{version}/SHASUMS256.txt"
+    shasums_body = fetch_body!(shasums_url)
+
+    filename = "bun-#{target}.zip"
+    expected_hash = find_hash_in_shasums(shasums_body, filename)
+
+    actual_hash =
+      :crypto.hash(:sha256, zip_body)
+      |> Base.encode16(case: :lower)
+
+    if actual_hash != expected_hash do
+      raise "Checksum mismatch for #{filename}. Expected #{expected_hash}, got #{actual_hash}."
+    end
+
+    Logger.debug("Checksum verified for #{filename}")
+    :ok
+  end
+
+  defp find_hash_in_shasums(body, filename) do
+    pattern = ~r/^([a-f0-9]{64})\s+#{Regex.escape(filename)}$/m
+
+    case Regex.run(pattern, body) do
+      [_, hash] -> hash
+      _ -> raise "Could not find checksum for #{filename} in SHASUMS256.txt"
+    end
   end
 
   defp freshdir_p(path) do
@@ -326,8 +376,8 @@ defmodule Bun do
 
   defp fetch_body!(url) do
     scheme = URI.parse(url).scheme
-    url = String.to_charlist(url)
-    Logger.debug("Downloading bun from #{url}")
+    url_chars = String.to_charlist(url)
+    Logger.debug("Downloading from #{url}")
 
     Mix.ensure_application!(:inets)
     Mix.ensure_application!(:ssl)
@@ -355,7 +405,7 @@ defmodule Bun do
 
     options = [body_format: :binary]
 
-    case :httpc.request(:get, {url, []}, http_options, options) do
+    case :httpc.request(:get, {url_chars, []}, http_options, options) do
       {:ok, {{_, 200, _}, _headers, body}} ->
         body
 
