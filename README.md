@@ -16,7 +16,7 @@ in dev:
 ```elixir
 def deps do
   [
-    {:bun, "~> 1.6", runtime: Mix.env() == :dev}
+    {:bun, "~> 2.0", runtime: Mix.env() == :dev}
   ]
 end
 ```
@@ -27,13 +27,13 @@ then it only needs to be a dev dependency:
 ```elixir
 def deps do
   [
-    {:bun, "~> 1.6", only: :dev}
+    {:bun, "~> 2.0", only: :dev}
   ]
 end
 ```
 
-Once installed, change your config (i.e. `config/config.exs` or
-`config/runtime.exs`) to pick your bun version of choice:
+Once installed, change your `config/config.exs` to pick your
+bun version of choice:
 
 ```elixir
 config :bun, version: "1.1.22"
@@ -96,7 +96,7 @@ First add it as a dependency in your `mix.exs`:
 def deps do
   [
     {:phoenix, github: "phoenixframework/phoenix"},
-    {:bun, "~> 1.6", runtime: Mix.env() == :dev}
+    {:bun, "~> 2.0", runtime: Mix.env() == :dev}
   ]
 end
 ```
